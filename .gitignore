@@ -1,9 +1,9 @@
 # User data (separate private repo)
 data/
 
-# Logs
-cron.log
-cron-refresh.log
+# Logs (glob covers logrotate artifacts: .log.1, .log.2.gz, …).
+cron.log*
+cron-refresh.log*
 
 # Python
 __pycache__/
