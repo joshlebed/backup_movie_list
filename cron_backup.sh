@@ -58,6 +58,7 @@ if [ ! -d ".git" ]; then
     exit 0
 fi
 
+PRE_COMMIT_SHA=$(git rev-parse HEAD 2>/dev/null || true)
 git add . || true
 
 if git diff --cached --quiet; then
@@ -74,17 +75,20 @@ else
 fi
 
 # Step 5: Post Discord digest of watchlist additions since the last run.
-# Compares HEAD~1 (yesterday's commit, post-step-4) to HEAD and posts a
-# single embed listing per-user additions. Reads DISCORD_WEBHOOK_URL from
-# media-stack/.env. Best-effort — failure here doesn't fail the cron.
+# Only fires when this run actually produced a new commit — otherwise the
+# diff would be against an old HEAD~1 and re-post the same additions every
+# day. Reads DISCORD_WEBHOOK_URL from media-stack/.env. Best-effort —
+# failure here doesn't fail the cron.
 echo ""
 echo "--- Posting Discord digest ---"
-PREV_COMMIT=$(git log --skip=1 -n 1 --format='%H' 2>/dev/null || true)
-if [ -n "$PREV_COMMIT" ]; then
-    "$REPO_DIR/scripts/post_discord_digest.py" "$PREV_COMMIT" "HEAD" || \
-        echo "(digest post failed; continuing)"
-else
+POST_COMMIT_SHA=$(git rev-parse HEAD 2>/dev/null || true)
+if [ -z "$PRE_COMMIT_SHA" ]; then
     echo "(no previous commit yet — skipping first-run digest)"
+elif [ "$PRE_COMMIT_SHA" = "$POST_COMMIT_SHA" ]; then
+    echo "(no new commit this run — skipping digest)"
+else
+    "$REPO_DIR/scripts/post_discord_digest.py" "$PRE_COMMIT_SHA" "$POST_COMMIT_SHA" || \
+        echo "(digest post failed; continuing)"
 fi
 
 echo ""
